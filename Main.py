@@ -5,7 +5,7 @@ import datetime
 
 from discord.ext import commands
 
-TOKEN = 'OTExNTE1MjA5MTU4NDk2MjY3.YZigsA.Zwnf8m-MkPeYMha6cQj9i78VnFM'
+TOKEN = '' #Cất phòng khi bay token con bot
 
 client = discord.Client()
 
