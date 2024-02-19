@@ -1,0 +1,115 @@
+import random
+import discord
+import asyncio
+import datetime
+import re 
+from discord.ext import commands
+
+TOKEN = '' #Cất phòng khi bay token con bot
+
+intents = discord.Intents.default()
+intents.messages = True  # Enable the on_message event
+
+client = commands.Bot(command_prefix='<', intents=intents)
+
+
+@client.event
+async def on_message(message):
+    empty_array = []
+    modmail_channel = discord.utils.get(client.get_all_channels(), name="⌈💬⌋chat-tào-lao")
+
+    if message.author == client.user:
+        return
+    if str(message.channel.type) == "private":
+        if message.attachments != empty_array:
+            files = message.attachments
+            await modmail_channel.send("From ["+ message.author.display_name + "]")
+
+            for file in files:
+                await modmail_channel.send(file.url)
+        else:
+            await modmail_channel.send(message.content)
+
+    elif str(message.channel) == "⌈💬⌋chat-tào-lao" and message.content.startswith("<"):
+        member_object = message.mentions[0]
+        if message.attachments != empty_array:
+            files = message.attachments
+            await member_object.send("From ["+ message.author.display_name + "]")
+
+            for file in files:
+                await member_object.send(file.url)
+        else:
+            index = message.content.index(" ")
+            string = message.content
+            mod_message = string[index:]
+            await member_object.send("From [" + message.author.display_name + "]" + mod_message)
+
+
+client.run('OTExNTE1MjA5MTU4NDk2MjY3.YZigsA.Zwnf8m-MkPeYMha6cQj9i78VnFM')
+
+bad_words = ["chị 7", "cị 7", "chj 7"]
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    user_message = message.content.lower()
+
+    for word in bad_words:
+        if re.search(fr'\b{re.escape(word)}\b', user_message):
+            muted_role = discord.utils.get(message.guild.roles, name="Muted")
+            if muted_role:
+                await message.channel.send(f"{message.author.mention}, your message contains a bad word. You are muted.")
+                await message.author.add_roles(muted_role)
+
+                # Schedule task to remove the muted role after 30 minutes
+                await asyncio.sleep(1800)
+                await message.author.remove_roles(muted_role)
+                await message.channel.send(f"{message.author.mention}, your mute has been lifted after 30 minutes.")
+                return
+
+
+def time():
+    Time=datetime.datetime.now().strftime("%I:%M:%p")
+
+
+
+        
+
+@client.event
+async def on_ready():
+    print(' {0.user} giáng lâm'.format(client))
+
+@client.event 
+async def on_message(message):
+    username = str(message.author).split('#')[0]
+    user_message = str(message.content)
+    channel = str(message.channel.name)
+    Time = datetime.datetime.now().strftime("%I:%M:%p")
+    print(f'{username}: {user_message} ({channel})')
+
+
+
+    if message.channel.name == '⁅💬⁆chat-tào-lao':
+        if user_message.lower() == 'kéo':
+            await message.channel.send(f'🔨')
+            return
+        if user_message.lower() == 'búa':
+            await message.channel.send(f'🗑')
+            return
+        if user_message.lower() == 'bao':
+            await message.channel.send(f'✂')
+            
+
+       
+    elif user_message.lower() == ',do độ đẹp trai':
+           response = f'Độ đẹp trai của bạn là {random.randrange(100)}/100 điểm'
+           await message.channel.send(response)
+
+
+    
+
+client.run(TOKEN)
+
+
