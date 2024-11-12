@@ -47,7 +47,7 @@ async def on_message(message):
             await member_object.send("From [" + message.author.display_name + "]" + mod_message)
 
 
-client.run('OTExNTE1MjA5MTU4NDk2MjY3.YZigsA.Zwnf8m-MkPeYMha6cQj9i78VnFM')
+client.run(TOKEN)
 
 
 
