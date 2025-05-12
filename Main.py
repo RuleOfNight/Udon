@@ -4,23 +4,32 @@
 
 import discord
 from discord.ext import commands
+from datetime import datetime
 import google.generativeai as genai
 import os
 import asyncio
+import json
 
 from dotenv import load_dotenv
 load_dotenv()
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+disPoken = os.getenv("disPoken")
+gemtopen = os.getenv("gemtopen")
 
 
 # Tên kênh để chuyển tiếp tin nhắn DM (Modmail)
 MODMAIL_CHANNEL_NAME = "⌈💬⌋chat-tào-lao"
 
+# Folder lưu memory banks
+MEMORY_DIR = "MemoryBank"
+MEMORY_LIMIT = 100
+os.makedirs(MEMORY_DIR, exist_ok=True)
+
 # --- Prompt tùy chỉnh cho Gemini ---
 # Chỉnh sửa nội dung này để thay đổi tính cách, giọng điệu cho bot
-SYSTEM_PROMPT = """Nhân Cách Và Phong Cách
+SYSTEM_PROMPT = f"""Nhân Cách Và Phong Cách
 Bạn là chatbot Discord tên Udon với phong cách giao tiếp cực kỳ thân thiện, nói chuyện như gen Z thực thụ. Bạn nói chuyện với giọng điệu của một thằng bạn thân quen lâu năm, toàn dùng ngôn ngữ đời thường, thậm chí hơi bặm trợn nhưng vẫn biết dừng ở mức độ phù hợp. Không có gì là quá trang trọng hay nghiêm túc, tất cả đều vui vẻ và thoải mái.
+
+
 Cách Nói Chuyện Và Từ Vựng
 
 Dùng các đại từ nhân xưng: "tao/mày", "t/m", "ông/tôi" tương ứng với cách từng ngươi dùng gọi bạn (mặc định nếu người dùng chưa xưng hô thì xưng ông/tôi)
@@ -48,6 +57,9 @@ Biết dừng lại khi đùa giỡn đã đủ và nhận ra khi người dùng
 
 
 Lưu ý cho người dùng prompt: Có thể điều chỉnh mức độ xuồng xã của bot tùy theo đối tượng người dùng trong server. Đảm bảo tuân thủ các quy định của Discord về nội dung và không để bot trở nên quá phản cảm hoặc gây khó chịu cho người dùng.
+
+
+
 """
 
 # --- Thiết lập Discord Bot ---
@@ -62,12 +74,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- Thiết lập Gemini API ---
 genai_configured = False
-if not GEMINI_API_KEY:
-    print("Biến GEMINI_API_KEY chưa được gán trong file .env")
+if not gemtopen:
+    print("Biến gemtopen chưa được gán trong file .env")
     model = None
 else:
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
+        genai.configure(api_key=gemtopen)
         # Chọn model
         model = genai.GenerativeModel('gemini-2.0-flash')
         genai_configured = True
@@ -75,6 +87,46 @@ else:
     except Exception as e:
         print(f"LỖI cấu hình Gemini API: {e}")
         model = None
+
+
+
+# --- MemoryBanks Logic ---
+def load_memory(user_id):
+    filepath = f"{MEMORY_DIR}/{user_id}.json"
+    if os.path.exists(filepath):
+        with open(filepath, "r") as file:
+            return json.load(file)
+    else:
+        return {
+            "user_id": user_id,
+            "username": "",
+            "messages": []
+        }
+
+
+
+def save_memory(user_id, memory_data):
+    filepath = f"{MEMORY_DIR}/{user_id}.json"
+    with open(filepath, "w") as file:
+        json.dump(memory_data, file, indent=4)
+
+
+def add_message_to_memory(user_id, username, content, timestamp):
+    memory = load_memory(user_id)
+    if memory["username"] == "":
+        memory["username"] = username
+
+    memory["messages"].append({
+        "content": content,
+        "timestamp": timestamp
+    })
+
+    if len(memory["messages"]) > MEMORY_LIMIT:
+        memory["messages"].pop(0)
+
+    save_memory(user_id, memory)
+
+
 
 # --- SỰ KIỆN CỦA BOT ---
 
@@ -90,13 +142,27 @@ async def on_ready():
         print(f"Sử dụng mô hình Gemini: {model.model_name}")
     print(f"Ready!")
 
+
+memory_banks = {}
+MEMORY_LIMIT = 100
+
+
 @bot.event
-async def on_message(message: discord.Message):
+async def on_message(message):
     """Sự kiện khi có tin nhắn mới."""
 
     # Bỏ qua tin nhắn từ chính bot
     if message.author == bot.user:
         return
+
+    user_id = str(message.author.id)
+    username = message.author.name
+    content = message.content
+    timestamp = message.created_at.isoformat()
+
+    add_message_to_memory(user_id, username, content, timestamp)
+
+
 
     # Modmail
     if isinstance(message.channel, discord.DMChannel):
@@ -178,7 +244,7 @@ async def on_message(message: discord.Message):
                             await message.reply(part, mention_author=False)
                             await asyncio.sleep(0.5) # Thêm độ trễ nhỏ giữa các phần
                     else:
-                        await message.reply(bot_response, mention_author=False) # mention_author=True đang lỗi gì đó làm ping sai người
+                        await message.reply(bot_response, mention_author=False)
                 else:
                     print("Lỗi: Gemini API trả về phản hồi không hợp lệ hoặc trống.")
                     await message.reply("Xin lỗi, mình gặp chút trục trặc khi suy nghĩ. Bạn thử lại sau nhé.", mention_author=False)
@@ -195,14 +261,14 @@ async def on_message(message: discord.Message):
 
 # --- CHẠY BOT ---
 if __name__ == "__main__":
-    if not DISCORD_TOKEN:
-        print("LỖI: Vui lòng cung cấp Discord Bot Token trong biến DISCORD_TOKEN.")
+    if not disPoken:
+        print("LỖI: Vui lòng cung cấp Discord Bot Token trong biến disPoken.")
     elif not genai_configured:
         print("LỖI: Không thể chạy bot do cấu hình Gemini API thất bại.")
     else:
         try:
             print("Đang khởi chạy bot...")
-            bot.run(DISCORD_TOKEN)
+            bot.run(disPoken)
         except discord.errors.LoginFailure:
             print("LỖI: Discord Bot Token không hợp lệ. Hãy kiểm tra lại.")
         except discord.errors.PrivilegedIntentsRequired:
