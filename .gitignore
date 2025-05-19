@@ -1,1 +1,6 @@
 .env
+test.py
+.idea/
+.venv/
+Lib/
+MemoryBank/
